@@ -1,0 +1,40 @@
+{
+    "version": "2.0.0",
+    "options": {
+        "env": {
+            "BLENDER": "C:\\Blender2.93\\blender-2.93.18-windows-x64\\blender.exe"
+        }
+    },
+    "tasks": [
+        {
+            "label": "Napravi magacin (magacin.py -> magacin.blend)",
+            "type": "process",
+            "command": "${env:BLENDER}",
+            "args": ["-b", "--python", "${workspaceFolder}\\magacin.py"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "group": { "kind": "build", "isDefault": true },
+            "problemMatcher": []
+        },
+        {
+            "label": "Otvori magacin u Blenderu",
+            "type": "process",
+            "command": "${env:BLENDER}",
+            "args": ["${workspaceFolder}\\magacin.blend"],
+            "problemMatcher": []
+        },
+        {
+            "label": "Render pregled (magacin_pregled.png)",
+            "type": "process",
+            "command": "${env:BLENDER}",
+            "args": ["-b", "${workspaceFolder}\\magacin.blend", "--python", "${workspaceFolder}\\render_pregled.py"],
+            "problemMatcher": []
+        },
+        {
+            "label": "Render odozgo (magacin_odozgo.png)",
+            "type": "process",
+            "command": "${env:BLENDER}",
+            "args": ["-b", "${workspaceFolder}\\magacin.blend", "--python", "${workspaceFolder}\\render_odozgo.py"],
+            "problemMatcher": []
+        }
+    ]
+}
