@@ -1,0 +1,426 @@
+<title>Virtuelni magacin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: kontrolna tabla magacina — 3D hala levo, panel lokacije i aktivnosti desno; na telefonu jedna kolona */
+:root{
+  --bg:#eef0f2; --surface:#ffffff; --line:#d5d9de; --fg:#1b2026; --muted:#5d6670;
+  --accent:#1f5fbf; --ok:#2f9e55; --low:#d99a14; --crit:#d23b2f;
+  --scene:#dfe3e8; --ground:#9aa1a8;
+  --display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --body:"IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#13171c; --surface:#1b2027; --line:#2c333c; --fg:#e7eaee; --muted:#9aa3ad;
+  --accent:#6aa2ff; --ok:#46b96d; --low:#e3aa2c; --crit:#ec5a4d;
+  --scene:#161b21; --ground:#2a3038; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13171c; --surface:#1b2027; --line:#2c333c; --fg:#e7eaee; --muted:#9aa3ad;
+  --accent:#6aa2ff; --ok:#46b96d; --low:#e3aa2c; --crit:#ec5a4d;
+  --scene:#161b21; --ground:#2a3038; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5;padding-inline:16px;padding-block:16px 40px}
+.wrap{max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(28px,5vw,40px);letter-spacing:.01em;margin:0;line-height:1;text-transform:uppercase;text-wrap:balance}
+h1 small{display:block;font-family:var(--body);font-size:13px;font-weight:500;color:var(--muted);text-transform:none;letter-spacing:0;margin-top:6px}
+h2{font-family:var(--display);font-weight:600;font-size:20px;text-transform:uppercase;letter-spacing:.04em;margin:0}
+.live{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--ok);animation:pulse 1.8s infinite}
+.live.off .dot{background:var(--muted);animation:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 60%,transparent)}100%{box-shadow:0 0 0 8px transparent}}
+button,.btn{font:inherit;font-size:14px;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:7px 12px;border-radius:6px;cursor:pointer}
+button:hover,.btn:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,textarea:focus-visible,.btn:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.stat{background:var(--surface);padding:10px 14px;cursor:pointer;border:0;border-radius:0;text-align:left;display:flex;flex-direction:column;gap:2px}
+.stat.on{box-shadow:inset 0 -3px 0 var(--accent)}
+.stat.ro{cursor:default}
+.stat b{font-family:var(--display);font-size:28px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:6px}
+.sw{width:10px;height:10px;border-radius:2px;display:inline-block}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px}
+@media (max-width:900px){.main{grid-template-columns:minmax(0,1fr)}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stage{position:relative;background:var(--scene);border:1px solid var(--line);border-radius:8px;overflow:hidden;height:min(66vh,640px);min-height:360px}
+#cv{display:block;width:100%;height:100%;touch-action:none}
+.hint{position:absolute;left:10px;bottom:10px;font-size:12px;color:var(--muted);background:color-mix(in srgb,var(--surface) 85%,transparent);padding:4px 8px;border-radius:4px;pointer-events:none}
+.tools{position:absolute;right:10px;top:10px;display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.side{display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.search{display:flex;gap:6px}
+.search input{flex:1;min-width:0;font:inherit;font-size:14px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+.code{font-family:var(--mono);font-weight:500;font-size:26px;letter-spacing:.02em}
+.pill{display:inline-flex;align-items:center;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.05em;color:#fff}
+dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;margin:0;font-size:14px}
+dt{color:var(--muted)}dd{margin:0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.bar{height:8px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;transition:width .4s}
+.empty{color:var(--muted);font-size:14px}
+#log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;font-size:13px;max-height:230px;overflow:auto}
+#log li{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:10px;padding:6px 0;border-bottom:1px solid var(--line);align-items:baseline}
+#log time{font-family:var(--mono);color:var(--muted);font-size:12px}
+#log .c{font-family:var(--mono);cursor:pointer;color:var(--accent)}
+.data{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:900px){.data{grid-template-columns:minmax(0,1fr)}}
+textarea{width:100%;min-height:150px;font-family:var(--mono);font-size:12px;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);resize:vertical}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.msg{font-size:13px;color:var(--muted)}
+.msg.err{color:var(--crit)}
+p{margin:0;max-width:65ch}
+code{font-family:var(--mono);font-size:.92em;background:var(--bg);padding:1px 5px;border-radius:3px;border:1px solid var(--line)}
+.btn input{display:none}
+.legend{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;font-size:14px;margin:0}
+.legend dt{font-family:var(--mono);color:var(--accent)}
+@media (prefers-reduced-motion:reduce){.dot{animation:none}.bar i{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Virtuelni magacin<small>Hala 60 × 50 × 10 m · 14 redova regala A–N · 5 nivoa · 1.120 paletnih mesta</small></h1>
+    <div class="row">
+      <div class="live" id="liveLbl"><span class="dot"></span><span id="liveTxt">Uživo · simulacija</span></div>
+      <button id="liveBtn" type="button">Pauziraj</button>
+    </div>
+  </header>
+
+  <div class="stats">
+    <button class="stat on" data-f="all" type="button"><span>Sva mesta</span><b id="sAll">0</b></button>
+    <button class="stat" data-f="ok" type="button"><span><i class="sw" style="background:var(--ok)"></i>Dobro ≥50%</span><b id="sOk">0</b></button>
+    <button class="stat" data-f="low" type="button"><span><i class="sw" style="background:var(--low)"></i>Malo 10–49%</span><b id="sLow">0</b></button>
+    <button class="stat" data-f="crit" type="button"><span><i class="sw" style="background:var(--crit)"></i>Kritično / prazno</span><b id="sCrit">0</b></button>
+    <div class="stat ro"><span>Popunjenost</span><b id="sFill">0%</b></div>
+  </div>
+
+  <div class="main">
+    <div class="stage">
+      <canvas id="cv" aria-label="3D prikaz magacina"></canvas>
+      <div class="tools">
+        <button id="camMain" type="button">Pregled</button>
+        <button id="camTop" type="button">Odozgo</button>
+        <button id="wallsBtn" type="button" aria-pressed="true">Zidovi</button>
+      </div>
+      <div class="hint">Prevuci za rotaciju · desni klik pomera · točkić zum · klik na paletu</div>
+    </div>
+
+    <div class="side">
+      <div class="panel">
+        <div class="search">
+          <input id="q" type="search" placeholder="Šifra (C-07-3) ili artikal" aria-label="Pretraga">
+          <button id="qBtn" type="button">Nađi</button>
+        </div>
+        <div id="detail"></div>
+      </div>
+      <div class="panel">
+        <h2>Aktivnost</h2>
+        <ul id="log"></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="data">
+    <div class="panel">
+      <h2>Podaci firme (CSV)</h2>
+      <p class="msg">Ovde ide izvoz iz programa firme ili Google Sheets tabele. Kolone: <code>lokacija,artikal,kolicina,kapacitet</code>. Upisani su primer podaci za svih 1.120 mesta.</p>
+      <textarea id="csv" spellcheck="false" aria-label="CSV podaci"></textarea>
+      <div class="row">
+        <button class="primary" id="applyCsv" type="button">Primeni podatke</button>
+        <label class="btn">Učitaj .csv<input id="csvFile" type="file" accept=".csv,text/csv"></label>
+        <span class="msg" id="csvMsg"></span>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Šifra lokacije</h2>
+      <p class="msg">Svako paletno mesto ima šifru <code>RED-MESTO-NIVO</code>, isto kao u tvom modelu iz <code>magacin.py</code>.</p>
+      <dl class="legend">
+        <dt>C</dt><dd>Red regala, A–N od zapada ka istoku</dd>
+        <dt>07</dt><dd>Mesto u redu, 01–16 od rampi ka kancelariji. Mesta 01–08 su u južnom bloku, 09–16 u severnom, iza protivpožarnog puta.</dd>
+        <dt>3</dt><dd>Nivo 1–5, na visini 0 · 1,8 · 3,6 · 5,4 · 7,2 m</dd>
+      </dl>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+/* ===== parametri iz magacin.py ===== */
+const DUZINA=60,SIRINA=50,VISINA=10,D=0.3;
+const BROJ_RAMPI=6,RAMPA_SIR=3.5,RAMPA_VIS=4,RAMPE_KAMION=[1,2,4];
+const KANC_X=12,KANC_Y=10,KANC_VIS=3.5;
+const REGAL_Y0=12,REGAL_Y1=38,REGAL_X0=13.5,POLJE=2.7,DUBINA=1.1,PROLAZ=4,PP=4;
+const NIVOI=[0,1.8,3.6,5.4,7.2],VIS_REGALA=8,SREDINA=(REGAL_Y0+REGAL_Y1)/2;
+const SLOVA="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const pad=n=>String(n).padStart(2,"0");
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+/* Blender (X duzina, Y sirina, Z visina) -> three (x, y gore, z ka posmatracu) */
+const V=(X,Y,Z)=>new THREE.Vector3(X-DUZINA/2,Z,SIRINA/2-Y);
+
+/* ===== raspored redova (isti algoritam kao u skripti) ===== */
+const redovi=[];let x=REGAL_X0;
+redovi.push([x,1]);x+=DUBINA+PROLAZ;
+while(x+2*DUBINA+PROLAZ+DUBINA<=DUZINA-0.5){redovi.push([x,2]);x+=2*DUBINA+PROLAZ}
+redovi.push([x,1]);
+const blokovi=[[REGAL_Y0,SREDINA-PP/2],[SREDINA+PP/2,REGAL_Y1]];
+const prvi=[];let nr=0;redovi.forEach(([,d])=>{prvi.push(nr);nr+=d});
+
+/* ===== scena ===== */
+const cv=document.getElementById("cv");
+const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(40,1,.5,400);
+const controls=new THREE.OrbitControls(camera,cv);
+controls.enableDamping=true;controls.maxPolarAngle=Math.PI*.495;controls.minDistance=5;controls.maxDistance=160;
+scene.add(new THREE.HemisphereLight(0xffffff,0x7a8696,.8));
+const sun=new THREE.DirectionalLight(0xffffff,.6);sun.position.set(-30,60,40);scene.add(sun);
+
+const mat=(c,o)=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.75},o||{}));
+const M={beton:mat(0x77777a),zid:mat(0xc7ccd1),vrata:mat(0x33404f,{metalness:.4}),stub:mat(0x1d4e9e,{metalness:.4}),
+  greda:mat(0xf06a0e,{metalness:.3}),paleta:mat(0x8c6a3c),kanc:mat(0xebebe6),staklo:mat(0x9cc8de,{transparent:true,opacity:.45}),
+  linija:mat(0xf2cc0d),pp:mat(0xbf5954),ppIv:mat(0xd90d08),izlaz:mat(0x0da633),asfalt:mat(0x2a2a2d),
+  prikolica:mat(0xbfc7cc),kabina:mat(0xa60d0d,{metalness:.3}),viljuskar:mat(0xf2a605),tabla:mat(0x0a2a6b)};
+const kut=(g,x0,y0,z0,x1,y1,z1,m)=>{const b=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,z1-z0,y1-y0),m);b.position.copy(V((x0+x1)/2,(y0+y1)/2,(z0+z1)/2));g.add(b);return b};
+
+const zgrada=new THREE.Group(),zidovi=new THREE.Group();scene.add(zgrada,zidovi);
+const ground=kut(zgrada,-40,-45,-0.3,DUZINA+40,SIRINA+30,-0.25,mat(0x999999));
+kut(zgrada,-15,-30,-0.25,DUZINA+15,-D,-0.02,M.asfalt);
+kut(zgrada,-D,-D,-0.2,DUZINA+D,SIRINA+D,0,M.beton);
+
+/* zidovi sa rampama i izlazima u nuzdi */
+const ia=SREDINA-1,ib=SREDINA+1;
+kut(zidovi,-D,SIRINA,0,DUZINA+D,SIRINA+D,VISINA,M.zid);
+for(const [xa,xb] of [[DUZINA,DUZINA+D],[-D,0]]){
+  kut(zidovi,xa,0,0,xb,ia,VISINA,M.zid);kut(zidovi,xa,ia,2.5,xb,ib,VISINA,M.zid);kut(zidovi,xa,ib,0,xb,SIRINA,VISINA,M.zid);
+  kut(zgrada,xa+D*.4,ia,0,xa+D*.6,ib,2.5,M.izlaz);
+}
+const razmak=DUZINA/BROJ_RAMPI;
+const otvori=[...Array(BROJ_RAMPI)].map((_,i)=>[razmak*(i+.5)-RAMPA_SIR/2,razmak*(i+.5)+RAMPA_SIR/2]);
+let wx=-D;
+otvori.forEach(([a,b],i)=>{
+  kut(zidovi,wx,-D,0,a,0,VISINA,M.zid);kut(zidovi,a,-D,RAMPA_VIS,b,0,VISINA,M.zid);wx=b;
+  if(RAMPE_KAMION.includes(i))kut(zgrada,a,-D*.6,RAMPA_VIS-.4,b,-D*.4,RAMPA_VIS,M.vrata);
+  else kut(zgrada,a,-D*.6,0,b,-D*.4,RAMPA_VIS,M.vrata);
+});
+kut(zidovi,wx,-D,0,DUZINA+D,0,VISINA,M.zid);
+
+/* kancelarija */
+const ky0=SIRINA-KANC_Y,t=.15;
+kut(zgrada,KANC_X-t,ky0,0,KANC_X,SIRINA,KANC_VIS,M.kanc);
+kut(zgrada,0,ky0,KANC_VIS-.15,KANC_X,SIRINA,KANC_VIS,M.kanc);
+kut(zgrada,0,ky0,0,1.5,ky0+t,KANC_VIS,M.kanc);
+kut(zgrada,2.5,ky0,0,KANC_X-t,ky0+t,1,M.kanc);
+kut(zgrada,1.5,ky0,2.2,KANC_X-t,ky0+t,KANC_VIS,M.kanc);
+kut(zgrada,2.5,ky0+.05,1,KANC_X-t,ky0+.1,2.2,M.staklo);
+
+/* linije na podu i protivpozarni put */
+kut(zgrada,.5,10,0,DUZINA-.5,10.1,.01,M.linija);
+const kraj=redovi[redovi.length-1][0]+redovi[redovi.length-1][1]*DUBINA;
+for(const [x0,y0,x1,y1] of [[.3,SREDINA-PP/2,DUZINA-.3,SREDINA+PP/2],[KANC_X-4,10.3,KANC_X,ky0-.3],[Math.max(kraj+.3,DUZINA-4),10.3,DUZINA-.3,SIRINA-.3]]){
+  kut(zgrada,x0,y0,0,x1,y1,.006,M.pp);
+  for(const [a,b,c,e] of [[x0,y0,x1,y0+.15],[x0,y1-.15,x1,y1],[x0,y0,x0+.15,y1],[x1-.15,y0,x1,y1]])kut(zgrada,a,b,.006,c,e,.012,M.ppIv);
+}
+for(const [by0,by1] of blokovi)for(const [rx,d] of redovi)for(const xl of [rx-.15,rx+d*DUBINA+.05])kut(zgrada,xl,by0-.3,0,xl+.1,by1+.3,.01,M.linija);
+
+/* kamioni na rampama 2, 3 i 5 */
+RAMPE_KAMION.forEach(i=>{
+  const xc=(otvori[i][0]+otvori[i][1])/2,y0=-D-.15,L=13.6,yk=y0-L-.4;
+  kut(zgrada,xc-1.3,y0-L,0,xc+1.3,y0,2.9,M.prikolica);
+  kut(zgrada,xc-1.25,yk-2.3,.5,xc+1.25,yk,3.4,M.kabina);
+  kut(zgrada,xc-1.2,yk-2.36,1.9,xc+1.2,yk-2.3,3,M.staklo);
+});
+/* viljuskari na punjacu */
+for(let i=0;i<3;i++)kut(zgrada,1.45+i*1.6,ky0-4.2,0,2.55+i*1.6,ky0-1.9,2.2,M.viljuskar);
+
+/* ===== regali (instancirani) ===== */
+const unit=new THREE.BoxGeometry(1,1,1),dummy=new THREE.Object3D();
+const stubovi=[],grede=[],slots=[];
+const s=.09;
+blokovi.forEach(([by0,by1],bi)=>{
+  const n=Math.floor((by1-by0)/POLJE+1e-9);
+  const ys=[...Array(n+1)].map((_,i)=>by1<=SREDINA?by1-(n-i)*POLJE:by0+i*POLJE);
+  redovi.forEach(([rx,dub],ri)=>{
+    for(let k=0;k<dub;k++){
+      const x0=rx+k*DUBINA,x1=x0+DUBINA,slovo=SLOVA[prvi[ri]+k];
+      ys.forEach(y=>[x0,x1-s].forEach(xs=>stubovi.push([xs,y-s/2,0,xs+s,y+s/2,VIS_REGALA])));
+      for(let i=0;i<n;i++){
+        const ya=ys[i]+s/2,yb=ys[i+1]-s/2;
+        NIVOI.forEach((z,li)=>{
+          if(z>0)[x0,x1-.05].forEach(xs=>grede.push([xs,ya,z-.12,xs+.05,yb,z]));
+          for(let p=0;p<2;p++){
+            const py0=ya+.15+p*1.25,px0=x0+.05,mesto=bi*8+i*2+p+1;
+            slots.push({code:`${slovo}-${pad(mesto)}-${li+1}`,red:slovo,mesto,nivo:li+1,blok:bi,
+              x0:px0,y0:py0,x1:px0+DUBINA-.1,y1:py0+.8,z,maxH:li===4?1.3:1.42});
+          }
+        });
+      }
+    }
+  });
+});
+function inst(list,m){
+  const im=new THREE.InstancedMesh(unit,m,list.length);
+  list.forEach(([x0,y0,z0,x1,y1,z1],i)=>{dummy.position.copy(V((x0+x1)/2,(y0+y1)/2,(z0+z1)/2));dummy.scale.set(x1-x0,z1-z0,y1-y0);dummy.updateMatrix();im.setMatrixAt(i,dummy.matrix)});
+  scene.add(im);return im;
+}
+inst(stubovi,M.stub);inst(grede,M.greda);
+const palete=new THREE.InstancedMesh(unit,M.paleta,slots.length);scene.add(palete);
+const roba=new THREE.InstancedMesh(unit,mat(0xffffff,{roughness:.6}),slots.length);scene.add(roba);
+const idx={};slots.forEach((sl,i)=>idx[sl.code]=i);
+
+/* table sa slovom reda (na oba kraja) i oznake zona */
+function sprite(txt,bg,w,h,font){
+  const c=document.createElement("canvas");c.width=w;c.height=h;const g=c.getContext("2d");
+  g.fillStyle=bg;g.fillRect(0,0,w,h);g.fillStyle="#fff";g.font=font;g.textAlign="center";g.textBaseline="middle";g.fillText(txt,w/2,h/2+4);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:true}));return sp;
+}
+redovi.forEach(([rx,dub],ri)=>{for(let k=0;k<dub;k++){
+  const xc=rx+k*DUBINA+DUBINA/2,sl=SLOVA[prvi[ri]+k];
+  for(const yk of [REGAL_Y0-.3,REGAL_Y1+.3]){const sp=sprite(sl,"#0a2a6b",128,128,"700 84px 'Barlow Condensed',Arial");sp.scale.set(1.3,1.3,1);sp.position.copy(V(xc,yk,VIS_REGALA+.8));scene.add(sp)}
+}});
+const zone=[["Utovarne rampe",30,-2,5.5],["Prijem i otprema",30,6,2.8],["Kancelarija",6,45,4.8],["Protivpožarni put",6,25,1.5],["Punjač viljuškara",4,37,3.4]];
+zone.forEach(([t,X,Y,Z])=>{const sp=sprite(t,"rgba(27,32,38,.82)",512,96,"600 50px 'IBM Plex Sans',Arial");sp.scale.set(8,1.5,1);sp.position.copy(V(X,Y,Z));scene.add(sp)});
+
+/* oznaka izabranog mesta */
+const selBox=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1,1,1)),new THREE.LineBasicMaterial({color:0xffffff}));
+selBox.visible=false;scene.add(selBox);
+
+/* ===== primer podataka ===== */
+const ART=[["Đubrivo NPK 15-15-15, 25 kg",40],["Pelet drveni, 15 kg",65],["Cement CEM II, 25 kg",48],["Stretch folija 23 µm",36],["Kartonske kutije 40×30×30",120],["Motorno ulje 5W-30, 4 L",80],["Brašno T-500, 25 kg",42],["Šećer kristal, 50 kg",24],["Lepak za pločice, 25 kg",48],["Boja zidna bela, 15 L",44],["Semenski kukuruz, 25 kg",40],["Rukavice radne, pak. 12",150],["Mineralna voda 1,5 L, 6 kom",72],["Keramičke pločice 30×60",56]];
+let seed=42;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+const data={};
+slots.forEach(sl=>{const a=ART[Math.floor(rnd()*ART.length)],x=rnd();
+  const r=x<.24?0:x<.34?.03+rnd()*.06:x<.56?.12+rnd()*.36:.5+rnd()*.5;
+  data[sl.code]={artikal:r?a[0]:"— slobodno mesto",kapacitet:a[1],kolicina:Math.round(a[1]*r)}});
+const toCsv=()=>"lokacija,artikal,kolicina,kapacitet\n"+slots.map(sl=>{const d=data[sl.code];return `${sl.code},"${d.artikal}",${d.kolicina},${d.kapacitet}`}).join("\n");
+const status=d=>{const r=d.kapacitet?d.kolicina/d.kapacitet:0;return r>=.5?"ok":r>=.1?"low":"crit"};
+const LBL={ok:"Dobro",low:"Malo",crit:"Kritično"};
+
+/* ===== bojenje ===== */
+let sel=null,filter="all";const flash={};
+const col=new THREE.Color();
+function paint(){
+  const C={ok:new THREE.Color(css("--ok")),low:new THREE.Color(css("--low")),crit:new THREE.Color(css("--crit"))};
+  const cnt={ok:0,low:0,crit:0};let zauz=0;
+  const now=performance.now();
+  slots.forEach((sl,i)=>{
+    const d=data[sl.code]||{kolicina:0,kapacitet:1},st=status(d);cnt[st]++;if(d.kolicina>0)zauz++;
+    const vis=filter==="all"||filter===st;
+    const r=Math.max(0,Math.min(1,d.kolicina/d.kapacitet));
+    // paleta (drvo) samo ako je mesto zauzeto
+    dummy.position.copy(V((sl.x0+sl.x1)/2,(sl.y0+sl.y1)/2,sl.z+.075));
+    dummy.scale.set(vis&&d.kolicina>0?sl.x1-sl.x0:0,.15,sl.y1-sl.y0);dummy.updateMatrix();palete.setMatrixAt(i,dummy.matrix);
+    // roba: visina prati kolicinu, prazno mesto je tanka crvena ploca
+    const h=d.kolicina>0?Math.max(.12,sl.maxH*r):.04;
+    const zb=sl.z+(d.kolicina>0?.15:.02);
+    dummy.position.copy(V((sl.x0+sl.x1)/2,(sl.y0+sl.y1)/2,zb+h/2));
+    dummy.scale.set(vis?sl.x1-sl.x0-.06:0,h,sl.y1-sl.y0-.06);dummy.updateMatrix();roba.setMatrixAt(i,dummy.matrix);
+    col.copy(C[st]);if(flash[sl.code]&&now-flash[sl.code]<700)col.lerp(new THREE.Color(0xffffff),.65);
+    roba.setColorAt(i,col);
+    if(sl.code===sel){selBox.position.copy(dummy.position);selBox.scale.set(sl.x1-sl.x0+.12,h+.12,sl.y1-sl.y0+.12);selBox.visible=vis}
+  });
+  palete.instanceMatrix.needsUpdate=roba.instanceMatrix.needsUpdate=true;roba.instanceColor.needsUpdate=true;
+  sAll.textContent=slots.length.toLocaleString("sr-RS");sOk.textContent=cnt.ok;sLow.textContent=cnt.low;sCrit.textContent=cnt.crit;
+  sFill.textContent=Math.round(zauz/slots.length*100)+"%";
+  if(!sel)selBox.visible=false;
+}
+
+/* ===== detalji ===== */
+const detail=document.getElementById("detail");
+function showDetail(){
+  if(!sel){detail.innerHTML='<p class="empty">Klikni na paletu u magacinu ili potraži artikal, pa ćeš videti stanje mesta.</p>';return}
+  const sl=slots[idx[sel]],d=data[sel],st=status(d),pct=Math.round(d.kolicina/d.kapacitet*100)||0;
+  detail.innerHTML=`<div class="row" style="justify-content:space-between"><span class="code">${sel}</span><span class="pill" style="background:var(--${st})">${d.kolicina===0?"Prazno":LBL[st]}</span></div>
+  <dl><dt>Artikal</dt><dd>${esc(d.artikal)}</dd><dt>Količina</dt><dd>${d.kolicina} / ${d.kapacitet} kom</dd>
+  <dt>Lokacija</dt><dd>Red ${sl.red} · mesto ${sl.mesto} · nivo ${sl.nivo}</dd>
+  <dt>Blok</dt><dd>${sl.blok?"Severni (iza protivpožarnog puta)":"Južni (bliže rampama)"}</dd>
+  <dt>Visina</dt><dd>${String(sl.z).replace(".",",")} m</dd></dl>
+  <div class="bar"><i style="width:${pct}%;background:var(--${st})"></i></div>
+  <span class="msg">${pct}% popunjenosti${st==="crit"?" · treba dopuniti":""}</span>`;
+}
+function select(code,focus){
+  sel=code;paint();showDetail();
+  if(focus&&code){const sl=slots[idx[code]],p=V((sl.x0+sl.x1)/2,(sl.y0+sl.y1)/2,sl.z+.8);
+    controls.target.copy(p);camera.position.set(p.x+7,p.y+6,p.z+10);controls.update()}
+}
+const ray=new THREE.Raycaster(),ptr=new THREE.Vector2();let down=null;
+cv.addEventListener("pointerdown",e=>down=[e.clientX,e.clientY]);
+cv.addEventListener("pointerup",e=>{
+  if(!down||Math.hypot(e.clientX-down[0],e.clientY-down[1])>6)return;
+  const r=cv.getBoundingClientRect();ptr.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);
+  ray.setFromCamera(ptr,camera);const hit=ray.intersectObject(roba)[0];
+  select(hit?slots[hit.instanceId].code:null,false);
+});
+function find(){
+  const v=q.value.trim().toLowerCase();if(!v)return;
+  const k=slots.map(s=>s.code).find(c=>c.toLowerCase()===v)||slots.map(s=>s.code).find(c=>data[c].kolicina>0&&data[c].artikal.toLowerCase().includes(v));
+  if(k)select(k,true);else detail.innerHTML='<p class="empty">Nema rezultata za „'+esc(q.value)+'“. Probaj šifru kao C-07-3.</p>';
+}
+qBtn.onclick=find;q.addEventListener("keydown",e=>{if(e.key==="Enter")find()});
+document.querySelectorAll(".stat[data-f]").forEach(b=>b.onclick=()=>{filter=b.dataset.f;document.querySelectorAll(".stat[data-f]").forEach(x=>x.classList.toggle("on",x===b));paint()});
+
+/* ===== kamera ===== */
+function camMain(){camera.position.set(-38,42,62);controls.target.set(0,1,2);controls.update()}
+function camTop(){camera.position.set(0,88,.01);controls.target.set(0,0,0);controls.update()}
+document.getElementById("camMain").onclick=camMain;document.getElementById("camTop").onclick=camTop;
+wallsBtn.onclick=()=>{zidovi.visible=!zidovi.visible;wallsBtn.setAttribute("aria-pressed",zidovi.visible)};
+camMain();
+
+/* ===== simulacija uzivo ===== */
+const log=document.getElementById("log");
+function addLog(code,txt){
+  const tm=new Date().toLocaleTimeString("sr-RS",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  const li=document.createElement("li");li.innerHTML=`<time>${tm}</time><span class="c">${code}</span><span>${esc(txt)}</span>`;
+  if(idx[code]!==undefined)li.querySelector(".c").onclick=()=>select(code,true);
+  log.prepend(li);while(log.children.length>40)log.lastChild.remove();
+}
+function tick(){
+  for(let i=0;i<3;i++){
+    const sl=slots[Math.floor(Math.random()*slots.length)],d=data[sl.code];
+    if(d.kolicina>0&&Math.random()<.6){const n=Math.min(d.kolicina,1+Math.floor(Math.random()*Math.max(2,d.kapacitet*.25)));d.kolicina-=n;addLog(sl.code,`Izdato ${n} · ${d.artikal}`);if(!d.kolicina)addLog(sl.code,"Mesto ispražnjeno")}
+    else if(d.kolicina>0){const n=Math.min(d.kapacitet-d.kolicina,Math.ceil(d.kapacitet*(.2+Math.random()*.5)));if(n>0){d.kolicina+=n;addLog(sl.code,`Dopunjeno ${n} · ${d.artikal}`)}}
+    else{const a=ART[Math.floor(Math.random()*ART.length)];Object.assign(d,{artikal:a[0],kapacitet:a[1],kolicina:a[1]});addLog(sl.code,`Nova paleta · ${a[0]}`)}
+    flash[sl.code]=performance.now();
+  }
+  paint();if(sel)showDetail();setTimeout(paint,750);
+}
+let timer=setInterval(tick,2500);
+liveBtn.onclick=()=>{
+  if(timer){clearInterval(timer);timer=null;liveBtn.textContent="Pokreni";liveLbl.classList.add("off");liveTxt.textContent="Pauzirano"}
+  else{timer=setInterval(tick,2500);liveBtn.textContent="Pauziraj";liveLbl.classList.remove("off");liveTxt.textContent="Uživo · simulacija"}
+};
+
+/* ===== CSV ===== */
+csv.value=toCsv();
+function parseLine(l){const o=[];let c="",qq=false;for(const ch of l){if(ch==='"')qq=!qq;else if((ch===","||ch===";")&&!qq){o.push(c);c=""}else c+=ch}o.push(c);return o.map(v=>v.trim())}
+function applyCsv(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(lines.length<2){csvMsg.className="msg err";csvMsg.textContent="Tabela je prazna. Treba zaglavlje i bar jedan red.";return}
+  const h=parseLine(lines[0]).map(v=>v.toLowerCase().replace("č","c"));
+  const ix=["lokacija","artikal","kolicina","kapacitet"].map(n=>h.indexOf(n));
+  if(ix.includes(-1)){csvMsg.className="msg err";csvMsg.textContent="Nedostaje kolona. Zaglavlje mora biti: lokacija,artikal,kolicina,kapacitet";return}
+  let ok=0,bad=0,nepoznato=0;
+  lines.slice(1).forEach(l=>{const c=parseLine(l),code=(c[ix[0]]||"").toUpperCase(),qn=+c[ix[2]],cap=+c[ix[3]];
+    if(idx[code]===undefined){nepoznato++;return}
+    if(!isNaN(qn)&&cap>0){data[code]={artikal:c[ix[1]]||"—",kolicina:Math.max(0,qn),kapacitet:cap};ok++}else bad++});
+  paint();if(sel)showDetail();
+  csvMsg.className="msg";csvMsg.textContent=`Učitano ${ok} mesta${bad?`, ${bad} redova sa neispravnim brojevima`:""}${nepoznato?`, ${nepoznato} šifara ne postoji u magacinu`:""}.`;
+  addLog("CSV",`Uvezeno ${ok} mesta iz tabele`);
+}
+document.getElementById("applyCsv").onclick=()=>applyCsv(csv.value);
+csvFile.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{csv.value=r.result;applyCsv(r.result)};r.readAsText(f)};
+
+/* ===== tema i petlja ===== */
+function applyTheme(){scene.background=new THREE.Color(css("--scene"));ground.material.color.set(css("--ground"));paint()}
+function resize(){const r=cv.parentElement.getBoundingClientRect();renderer.setSize(r.width,r.height,false);camera.aspect=r.width/r.height;camera.updateProjectionMatrix()}
+new ResizeObserver(resize).observe(cv.parentElement);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",applyTheme);
+new MutationObserver(applyTheme).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+applyTheme();resize();showDetail();
+for(let i=0;i<4;i++)tick();
+(function loop(){controls.update();renderer.render(scene,camera);requestAnimationFrame(loop)})();
+})();
+</script>
